@@ -39,7 +39,7 @@ sudo systemctl enable nginx
 sudo systemctl restart nginx
 ```
 
-**Step 5:** Testing
+**Step 5:** Testing </br>
 ![Alt text](images/nginx.png)
 
 
@@ -99,5 +99,5 @@ After that, try to restart Apache2 service
 sudo systemctl restart apache2
 ```
 
-**Step 8:** Testing
+**Step 8:** Testing </br>
 ![Alt text](images/apache.png)
