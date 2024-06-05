@@ -127,5 +127,62 @@ The following is an explanation of the command above.
 
 
 # Part 2: Setting up Jenkins Wizard
+**Step 1:** Open your browser and run http://{{Public-IP}}:8080. Wait until the **Unlock Jenkins** page appears.
+
+**Step 2:** As it says, you are required to copy the password from the Jenkins log to ensure that Jenkins is accessed safely by administrators. 
+
+**Step 3:** Display the Jenkins console log with the following command in Terminal/CMD
+```shell
+docker logs jenkins-blueocean
+```
+
+**Step 4:** From the Terminal/CMD application, copy the password between the 2 series of asterisks.
+![Alt text](images/06_jenkins-initial-password.png)
+
+**Step 5:** Return to the *Unlock Jenkins* page in the browser, paste the password into the **Administrator password** column and click **Continue**.
+
+**Step 6:** After that, the Customize Jenkins page appears. Select **Install suggested plugins**. The setup wizard shows progress that Jenkins is being configured and recommended plugins are being installed. This process may take up to several minutes. <br>
+**Note:** If there is a failure during the plugin installation process, you can click **Retry** (to repeat the plugin installation process until it is successful) or click **Continue** (to skip and proceed directly to the next step).
+
+**Step 7:** Once done, Jenkins will ask you to create an administrator user. When the *Create First Admin User* page appears, fill it in according to your wishes and click **Save and Continue**.
+
+**Step 8:** On the Instance Configuration page, select **Save and Finish**. That means, we will access Jenkins from the url http://{{localhost}}:8080/. 
+
+**Step 9:** When the *Jenkins is ready* page appears, click the **Start using Jenkins** button.
+Note: This page may indicate *Jenkins is almost ready!* If so, click **Restart**. If the page doesn't refresh automatically after a few minutes, manually click the *refresh* icon in your browser.
+
+**Step 10:** If necessary, you can log back into Jenkins using the credentials you created earlier.
+![Alt text](images/07_jenkins-home.png)
 
 
+# Part 3: Fork and Clone React App Repository
+**Step 1:** Fork the [React App repository](https://github.com/dicodingacademy/a428-cicd-labs/tree/react-app) on Dicoding Academy to your personal GitHub account. When forking, don't forget to uncheck the copy the main branch only option. If you need help with this process, check out the [Fork A Repo](https://help.github.com/articles/fork-a-repo/) documentation on the GitHub website for more information.
+
+**Step 2:** Clone a React App that has been forked to your GitHub account to your local environment. 
+```shell
+git clone -b react-app https://github.com/YOUR-GITHUB-USERNAME/a428-cicd-labs.git
+```
+
+# Part 4: Creating a Pipeline Project in Jenkins
+**Step 1:** Open the Jenkins page. If necessary, go to http://{{localhost}}:8080/ and log in again with your credentials.
+
+**Step 2:** In the *Welcome to Jenkins!* section, click **Create a job**. If you don't see it, click **New Item** at the top left.
+
+**Step 3:** In the *Enter an item name* column, fill in the name of the pipeline you want, for example **react-app**. Then, select **Pipeline** and click **OK**.
+
+**Step 4:** On the next page, enter a short description for your pipeline in the Description column, for example **A simple pipeline for a React App project**.
+
+**Step 5:** After that, open the tab that says **Pipeline** above the *Description* column which will take you to scroll down to the *Pipeline* section.
+
+**Step 6:** In the *Definition* section, select the **Pipeline script from SCM** option. This option instructs Jenkins to create a Pipeline from Source Control Management (SCM), which means the Git repository that you previously cloned to the local environment.
+
+**Step 7:** In the SCM column, select **Git**.
+
+**Step 8:** In the Repository URL section, enter the directory path (directory location) from the local repository for the React App that you previously cloned, namely from the user account or home directory on your host machine (computer) which is mapped to the /home directory on the Jenkins container. For example (adjust to the directory structure on your computer).
+![Alt text](images/08_react-app-directory.png)
+
+**Note:** You don't need to include the computer's hostname (/home/sleepingknight), but just **/home** and go straight to the destination directory.
+
+**Step 9:** After that, scroll down. In the *Branch Specifier (blank for 'any')*, change it to `*/react-app`. This means that we want to focus on the branch called **react-app** (as we cloned previously).
+
+**Step 10:** Then, click the **Save** button to save your Pipeline project.
