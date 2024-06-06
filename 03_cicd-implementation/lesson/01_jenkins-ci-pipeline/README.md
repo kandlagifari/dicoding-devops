@@ -183,6 +183,73 @@ git clone -b react-app https://github.com/YOUR-GITHUB-USERNAME/a428-cicd-labs.gi
 
 **Note:** You don't need to include the computer's hostname (/home/sleepingknight), but just **/home** and go straight to the destination directory.
 
+Make sure, your **/home/YOUR-USERNAME** directory have given *read* and *execute* permission to other user/group
+![Alt text](images/09_directory-permission.png)
+
+Just in case, you are facing this error
+![Alt text](images/10_error-permission.png)
+
 **Step 9:** After that, scroll down. In the *Branch Specifier (blank for 'any')*, change it to `*/react-app`. This means that we want to focus on the branch called **react-app** (as we cloned previously).
 
 **Step 10:** Then, click the **Save** button to save your Pipeline project.
+
+
+# Part 5: Create a Jenkins Pipeline with Jenkinsfile
+**Step 1:** Change to the react application directory **a428-cicd-labs** in the `react-app branch`, and create a new file called Jenkinsfile
+```shell
+vi Jenkinsfile
+```
+
+**Step 2:** Once the *Jenkinsfile* file is open, copy the Declarative Pipeline code below into the file.
+```Jenkinsfile
+pipeline {
+  agent {
+    docker {
+      image 'node:16-buster-slim'
+      args '-p 3000:3000'
+    }
+  }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'npm install'
+      }
+    }
+    stage('Test') { 
+      steps {
+        sh './jenkins/scripts/test.sh' 
+      }
+    }
+  }
+}
+```
+
+The following is an explanation of the script above.
+- **image 'node:16-buster-slim':** This image parameter (from the docker parameters agent section) downloads a Docker image named **node:16-buster-slim** (if it is not already available on your computer) and runs the image as a separate container. This means the following. 
+
+  + You will have a separate Jenkins container and Node container running locally in Docker. 
+
+  + The node container is the agent that Jenkins uses to run your Pipeline project. However, this container will only run for the duration of your Pipeline execution.
+
+- **args '-p 3000:3000':** This *args* parameter makes this Node container accessible (temporarily) via port 3000. This is important for running the **jenkins/scripts/deliver.sh** file.
+
+- **stage('Build'):** Defines a *stage* called **Build** that appears in the Jenkins UI.
+
+- **sh 'npm install':** The *sh* step (from the *steps* section) executes *npm* commands to ensure that all dependencies required to run the React App application have been downloaded to the *node_modules* directory.
+
+- **stage('Test'):** Defines a *stage* called **Test** that appears in the Jenkins UI.
+
+- **sh './jenkins/scripts/test.sh':** The *sh* step (from the *steps* section) runs a shell script called *test.sh* located in the *jenkins/scripts* directory of the root of the react-app repository. An explanation of what this script does is included in the *test.sh* file itself. In essence, the file runs the **npm test** command, which will run the **react-scripts test --env=jsdom** syntax written in the **package.json** file. This syntax runs the test as stated in the **src/App.test.js** file, namely testing whether the application can render without crashing.
+
+**Step 3:**  After saving, now commit the file to your local repository by running the following command.
+```shell
+git add .
+git commit -m “Jenkinsfile testing”
+```
+
+**Step 4:** Return to the Jenkins page, log in if necessary, and make sure you access the Blue Ocean interface.
+
+**Step 5:** Click the **RUN** button in the top left corner, then immediately click the link that says **OPEN** that appears in the bottom right to see how Jenkins runs your Pipeline project. If you can't open the OPEN link, click the top row of the Blue Ocean interface.
+
+**Step 6:** If the Pipeline runs successfully, this is what the Blue Ocean interface will look like.
+![Alt text](images/11_blueocean.png)
