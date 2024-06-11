@@ -163,6 +163,11 @@ Note: This page may indicate *Jenkins is almost ready!* If so, click **Restart**
 git clone -b react-app https://github.com/YOUR-GITHUB-USERNAME/a428-cicd-labs.git
 ```
 
+You can also rename the directory, for example
+```shell
+mv a428-cicd-labs cicd-implementation-labs
+```
+
 # Part 4: Creating a Pipeline Project in Jenkins
 **Step 1:** Open the Jenkins page. If necessary, go to http://{{localhost}}:8080/ and log in again with your credentials.
 
@@ -195,7 +200,7 @@ Just in case, you are facing this error
 
 
 # Part 5: Create a Jenkins Pipeline with Jenkinsfile
-**Step 1:** Change to the react application directory **a428-cicd-labs** in the `react-app branch`, and create a new file called Jenkinsfile
+**Step 1:** Change to the react application directory **cicd-implementation-labs** in the `react-app branch`, and create a new file called Jenkinsfile
 ```shell
 vi Jenkinsfile
 ```
@@ -253,3 +258,104 @@ git commit -m “Jenkinsfile testing”
 
 **Step 6:** If the Pipeline runs successfully, this is what the Blue Ocean interface will look like.
 ![Alt text](images/11_blueocean.png)
+
+
+# Part 6: Added Deploy Stage to Jenkinsfile
+**Step 1:** Copy the following declarative pipeline syntax just below *Test stage* in your **Jenkinsfile**.
+```Jenkinsfile
+    stage('Deploy') {
+      steps {
+        sh './jenkins/scripts/deliver.sh'
+        input message: 'Sudah selesai menggunakan React App? (Klik "Proceed" untuk mengakhiri)'
+        sh './jenkins/scripts/kill.sh'
+      }
+    }
+```
+
+Now, the entire Jenkinsfile will look like the following.
+```Jenkinsfile
+pipeline {
+  agent {
+    docker {
+      image 'node:16-buster-slim'
+      args '-p 3000:3000'
+    }
+  }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'npm install'
+      }
+    }
+    stage('Test') {
+      steps {
+        sh './jenkins/scripts/test.sh'
+      }
+    }
+    stage('Deploy') { 
+      steps {
+        sh './jenkins/scripts/deliver.sh' 
+        input message: 'Sudah selesai menggunakan React App? (Klik "Proceed" untuk mengakhiri)' 
+        sh './jenkins/scripts/kill.sh' 
+      }
+    }
+  }
+}
+```
+The following is an explanation of the script above.
+- **stage('Deploy'):** Defines a new stage called “Deploy” that appears in the Jenkins UI.
+
+- **sh './jenkins/scripts/deliver.sh':** This `sh` step (from the `steps` section) runs a shell script called deliver.sh located in the jenkins/scripts directory of the root of the react-app repository. An explanation of what this script does is included in the *deliver.sh* file itself. In essence, the file executes several commands like the following.
+
+  + **npm run build:** Runs the **react-scripts build** syntax written in the **package.json** file. This syntax runs the build process in preparation for deploying to production. 
+
+  + **npm start:** Runs the **react-scripts start** syntax written in the **package.json** file. This syntax starts the application process so that it can be accessed via *http://localhost:3000* in the browser.
+
+- **input message: 'Are you done using React App? (Click "Proceed" to continue)':** This `input` step (provided by the Pipeline: Input Step plugin) pauses the deployment process so that the React App application can continue to be accessed. In other words, the process for docker:dind (docker in docker, i.e. the container running the React App) can continue to run. How it works, this `input message` asks the user (with a special message) to choose whether they want to "Proceed" (in this case, continue to end the application by running the **kill.sh** script) or "Abort" (in this case, stop the Jenkins Pipeline) .
+
+- **sh './jenkins/scripts/kill.sh':** This sh step runs a shell script called **kill.sh**, which is located in the *jenkins/scripts* directory. An explanation of what this script does is included in the kill.sh file itself. In essence, the file ends the **npm start** process using the PID (process ID).
+
+**Step 2:**  After saving, now commit the file to your local repository by running the following command.
+```shell
+git add .
+git commit -m “Add Deploy stage”
+```
+
+
+# Part 7: Running Jenkins Pipeline
+**Step 1:** Open the Jenkins page with the URL *http://localhost:8080/*, log in if necessary, and click **Open Blue Ocean** on the left side to access the Blue Ocean interface in Jenkins.
+
+**Step 2:** Select **react-app**, then click **Run**. Then, immediately click the link that says **OPEN** that appears at the bottom right to see how Jenkins executes your project's Pipeline.
+
+**Step 3:** Pay attention to each stage carried out by Jenkins. You now find there is a new stage called “Deploy”.
+
+**Step 4:** In the Deploy stage, Jenkins executes the **deliver.sh** script as we specified in the Jenkinsfile.
+
+**Step 5:** Then, a prompt appears asking us to choose. This is the result of the *input message* that we defined in the Jenkinsfile.
+![Alt text](images/12_blueocean-deploy.png)
+
+**Step 6:** Before interacting with the prompt, try opening the **./jenkins/scripts/deliver.sh** step to see what happens during the deployment process.
+
+**Step 7:** Scroll down until you find http://localhost:3000 (Use our Public-IP, in case we deployed in VPS/EC2)
+![Alt text](images/13_deliver-scripts.png)
+
+**Step 8:** 
+Click on the link. That will open a new tab browser and display the React App application.
+![Alt text](images/14_react-app.png)
+
+
+**Step 9:** Yeeaaayy! You have successfully deployed a React App application using Jenkins. Return to the Blue Ocean interface, then select **Proceed** to end the application.
+
+**Step 10:** In Your Code Editor, open the file **cicd-implementation-labs -> src -> App.js**.
+
+**Step 11:** Look for the line of code that contains “Welcome to React”, then change it to “Assalamualaikum from React App”. Don't forget to save the file.
+![Alt text](images/15_edit-code.png)
+
+**Step 12:** Commit the changes, then run the Jenkins Pipeline, and open the URL for the React App application again. The display will be as follows.
+![Alt text](images/16_redeploy-react-app.png)
+
+**Step 13:** 
+If you are satisfied with exploring the React App, please return to the Jenkins Pipeline page, then click the **Proceed** button to complete the Pipeline execution.
+![Alt text](images/17_finish.png)
+
+**Step 14:** Click the cross button (X) in the upper right corner to return to the Blue Ocean interface homepage.
