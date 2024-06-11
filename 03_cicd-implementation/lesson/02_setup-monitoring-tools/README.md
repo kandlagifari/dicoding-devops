@@ -138,3 +138,10 @@ docker restart prometheus
 
 
 # Part 3: Creating a Dashboard in Grafana
+After completing various previous stages, now Jenkins can expose metrics and Prometheus can take them for processing. So, what's next? Of course, it is a visualization of metrics so that we can monitor them easily.
+
+In fact, in Prometheus itself we can visualize data metrics. Want to try it? Reopen the Prometheus page that displays the results of the last build duration query. Instead of selecting Table, try opening the **Graph** tab. You will see the query results in graphic form, which can be an unstacked line graph or a stacked graph.
+
+However, Prometheus' capabilities for visualization of data metrics are very limited. There are not many options that we can choose to help with monitoring. Therefore, we will use Grafana, which can visualize metrics data completely and attractively.
+
+![Alt text](images/15_prometheus-graph.png)
