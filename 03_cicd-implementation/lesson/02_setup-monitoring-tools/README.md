@@ -142,6 +142,99 @@ After completing various previous stages, now Jenkins can expose metrics and Pro
 
 In fact, in Prometheus itself we can visualize data metrics. Want to try it? Reopen the Prometheus page that displays the results of the last build duration query. Instead of selecting Table, try opening the **Graph** tab. You will see the query results in graphic form, which can be an unstacked line graph or a stacked graph.
 
+![Alt text](images/15_prometheus-graph.png)
+
 However, Prometheus' capabilities for visualization of data metrics are very limited. There are not many options that we can choose to help with monitoring. Therefore, we will use Grafana, which can visualize metrics data completely and attractively.
 
-![Alt text](images/15_prometheus-graph.png)
+**Step 1:** Make sure the Grafana container is still running. in Terminal, you can run the **docker ps** command and the Grafana container should display the status **Up**.
+
+![Alt text](images/16_container-list.png)
+
+**Step 2:** Next, open the Grafana page by visiting **http://localhost:3030/** in a web browser. The Grafana login display will immediately appear.
+
+![Alt text](images/17_grafana-login.png)
+
+**Step 3:** Please fill in the following values.
+  + **Email or username:** admin
+  + **Password:** admin
+
+**Step 4:** On the next page, you are asked to enter a new password. Please fill in according to your wishes or skip it by clicking **Skip**.
+
+**Step 5:** Then, you will be directed to the Home page of Grafana.
+
+![Alt text](images/18_grafana-home.png)
+
+**Step 6:** The first thing we need to do to create a dashboard in Grafana is add a *data source* first. From the Home page, click **Add your first data source**.
+
+**Step 7:** After that, select **Prometheus**. Adjust to the following configuration.
+  + **Name:** Prometheus - Jenkins
+  + **URL:** http://{{your-prometheus-network-gateway}}:9090
+
+Again, because Prometheus and Grafana run in different containers, we cannot use a URL for Prometheus like localhost:9090. From Grafana's perspective, the way to access Prometheus is with *172.17.0.1* (IP Gateway Network Prometheus).
+
+![Alt text](images/19_prometheus-network-gateway.png)
+
+**Step 8:** If everything is correct, scroll down and click **Save & test**. Make sure it says **Data source is working**.
+
+![Alt text](images/20_data-source.png)
+
+**Step 9:** That means now we are ready to create a dashboard. Go to the Home page by clicking the **Grafana** logo in the top left corner. Click **Create your first dashboard**, then select Add a new panel. 
+
+
+**Step 10:** Then the Edit Panel page will open. Be creative in creating the dashboard you want.
+
+**Step 11:** We'll try to guide you, OK? First, adjust the *visualization* options located at the top right. Change from the original *Time series* to **Stat**. 
+
+**Step 12:** Next, please adjust it to the following configuration.
+  1. **Title:** Last Build Duration
+  2. **Metric:** default_jenkins_builds_last_build_duration_milliseconds
+
+**Step 13:** Then, click the **Run queries** button. Ta-da! This is what it looks like.
+
+![Alt text](images/21_grafana-query.png)
+
+**Step 14:** Save the panel by clicking the **Save** button. Enter **Jenkins Dashboard** in the *Dashboard name*, then click **Save**.
+
+**Step 15:** Now you have a dashboard that only contains 1 panel. That means, your dashboard only displays a small part of the information related to Jenkins.
+
+![Alt text](images/22_grafana-dashboard.png)
+
+**Step 16:** You can add as many panels as you like by clicking the **Add** at the top of the page.
+
+![Alt text](images/23_add-panel.png)
+
+**Step 17:** If you feel that adding panels one by one is a tiring activity, you can import the dashboard available on the official Grafana website.
+
+**Step 18:** Please visit [Grafana dashboard](https://grafana.com/grafana/dashboards/). In the search box, enter **Jenkins**. Filter by selecting **Prometheus** in *Data Source*. 
+
+**Step 19:** Select **Jenkins: Performance and Health Overview**. Click the **Copy ID to Clipboard** button. This will copy the ID of that dashboard to your clipboard.
+
+**Step 20:** Return to the Jenkins Dashboard page that you previously created in Grafana. Hover your mouse over the *Dashboards* icon on the left, then select **Import** (click **Save dashboard -> Save** if you have made changes).
+
+![Alt text](images/24_import-dashboard.png)
+
+**Step 21:** Paste (CTRL+V) the dashboard ID that was copied earlier in the **Import via grafana.com** column and click **Load** next to it.
+
+![Alt text](images/25_import-dashboard-2.png)
+
+**Step 22:** The next page will contain all information related to the dashboard you want to import, such as who published it, when it was last updated, and so on. Continue by selecting **Prometheus - Jenkins** for the *Prometheus* section and click the **Import** button.
+
+![Alt text](images/26_import-dashboard-3.png)
+
+**Step 23:** *Voila!* Various needs regarding Jenkins are automatically available. Cool, right?
+
+![Alt text](images/27_import-dashboard-4.png)
+
+Don't forget to save the dashboard by clicking the **Save dashboard** button **-> Save**.
+
+*Yeaah!* You have successfully configured Prometheus and Grafana to monitor Jenkins. What an achievement! Now, you can monitor how the Jenkins server works, such as CPU usage, memory consumption, job duration (pipeline execution process), number of failed jobs, and so on.
+
+You can see these metrics for a certain period, for example the last 30 minutes, last 3 hours, last week, or even last month.
+
+![Alt text](images/28_import-dashboard-5.png)
+
+To be more helpful in monitoring, you can also determine how often Grafana should refresh the dashboard automatically, whether every 5 seconds, every 5 minutes, once an hour, or maybe manually.
+
+Because, previously we set the Jenkins server to expose its metrics every 5 seconds, the best practice is to also set Grafana to refresh the dashboard every 5 seconds.
+
+![Alt text](images/29_import-dashboard-6.png)
