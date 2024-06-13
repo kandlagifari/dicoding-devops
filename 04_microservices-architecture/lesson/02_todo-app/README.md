@@ -50,4 +50,47 @@ In the command above, we run the new container in **detach mode** (running in th
 
 **Step 8:** Next, open the address http://{{Public-IP}}:30002/ in a web browser. Soon, the Todo App will appear there.
 
+![Alt text](pics/02_todo-app.png)
+
 **Step 9:** Please add some items you want. You can also check an item to mark it as complete or press the red trash icon to delete it.
+
+![Alt text](pics/03_add-note.png)
+
+
+# Part 2: Modifying Applications
+
+**Step 1:** In Visual Studio Code, open the **src/static/js/app.js** file.
+
+**Step 2:** After that, replace the text **“No items yet! Add one above!”** to **“You have no todo items yet! Add one above!”**.
+
+![Alt text](pics/04_update-code.png)
+
+Don't forget to save by pressing **CTRL+S**.
+
+**Step 3:** Next, in the VS Code terminal, build an image to apply the modifications just now with the name **todo-app** and tag **v2**.
+```shell
+docker build -t todo-app:v2 .
+```
+
+**Step 4:** After the build process is complete, we need to run a new container using the image that was created earlier. However, we must stop the previous container first to avoid failure because the container name and port used are exactly the same.
+```shell
+docker rm -f todo-app
+```
+The command above functions to stop and delete containers.
+
+**Step 5:** Well, now let's run the container.
+```shell
+docker run -dp 30002:3000 --name todo-app todo-app:v2
+```
+
+![Alt text](pics/05_build-run-2.png)
+
+**Step 6:** Open the address http://{{Public-IP}}:3000/ again in a web browser. Surely you will see the changes.
+
+![Alt text](pics/06_todo-app-2.png)
+
+You have successfully updated the Todo App application code!
+
+Are you aware? When we reopened the Todo App (http://{{Public-IP}}:3000/), it turned out that all the items we had previously created had disappeared! This happens because we have deleted the previous container and run a new container with the new image. Therefore, when accessed, the Todo App application is like a new born baby. Clean!
+
+In the future, we will learn to add volumes so that items in the application remain even if the previous container has been deleted.
