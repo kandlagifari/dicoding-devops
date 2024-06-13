@@ -48,7 +48,7 @@ In the command above, we run the new container in **detach mode** (running in th
 
 ![Alt text](pics/01_build-run.png)
 
-**Step 8:** Next, open the address http://{{Public-IP}}:30002/ in a web browser. Soon, the Todo App will appear there.
+**Step 8:** Next, open the address http://{{Public-IP}}:300022/ in a web browser. Soon, the Todo App will appear there.
 
 ![Alt text](pics/02_todo-app.png)
 
@@ -85,12 +85,66 @@ docker run -dp 30002:3000 --name todo-app todo-app:v2
 
 ![Alt text](pics/05_build-run-2.png)
 
-**Step 6:** Open the address http://{{Public-IP}}:3000/ again in a web browser. Surely you will see the changes.
+**Step 6:** Open the address http://{{Public-IP}}:30002/ again in a web browser. Surely you will see the changes.
 
 ![Alt text](pics/06_todo-app-2.png)
 
 You have successfully updated the Todo App application code!
 
-Are you aware? When we reopened the Todo App (http://{{Public-IP}}:3000/), it turned out that all the items we had previously created had disappeared! This happens because we have deleted the previous container and run a new container with the new image. Therefore, when accessed, the Todo App application is like a new born baby. Clean!
+Are you aware? When we reopened the Todo App (http://{{Public-IP}}:30002/), it turned out that all the items we had previously created had disappeared! This happens because we have deleted the previous container and run a new container with the new image. Therefore, when accessed, the Todo App application is like a new born baby. Clean!
 
 In the future, we will learn to add volumes so that items in the application remain even if the previous container has been deleted.
+
+
+# Part 3: Adding Volumes for SQLite
+
+In the previous stage, we noticed that all items in the Todo App application were deleted when launching a new container. You will already understand this thanks to studying the Storage in Docker material. Therefore, we need storage for the Todo App application. In this exercise, we will choose volume. 
+
+Volumes provide the ability to connect a specific path from a container's filesystem to the host machine. If a directory in a container is *mounted*, changes in that directory can also be seen on the host machine. In fact, if we use the same volume for all containers, we can see the same files in each container.
+
+By default, the Todo App application will store data in a [SQLite Database](https://www.sqlite.org/index.html) at **/etc/todos/todo.db** in the container's filesystem (please check the **src/persistence/sqlite.js** file).
+
+![Alt text](pics/07_db-local.png)
+
+SQLite is a relational database that stores all data into a single file. SQLite is often used for development, demos or small scale applications so it is suitable for our current Todo App. 
+
+Note: Later we will discuss how to use different database engines such as MySQL which are suitable for production or large scale applications. 
+
+By creating a volume and attaching it (aka "mounting") to a container, SQLite can store data to that volume so that the data will not be lost even if the container is deleted. 
+
+When SQLite (in the container) saves data to the todo.db file, the file is also stored on the host. This means that we can also check the data from the host machine.
+
+OK, just follow the steps below.
+
+**Step 1:** Create a volume with the name **todo-db**.
+```shell
+docker volume create todo-db
+```
+
+**Step 2:** Then, stop and delete the previous todo-app container because it doesn't use volumes yet.
+```shell
+docker rm -f todo-app
+```
+
+**Step 3** Run a new container for Todo App, but this time add the **-v** option to include volumes.
+```shell
+docker run -dp 30002:3000 --name todo-app -v todo-db:/etc/todos todo-app:v2
+```
+
+**Step 4:** Access the Todo App again via http://{{Public-IP}}:30002/. Try adding as many items as you like.
+
+![Alt text](pics/08_app-volume.png)
+
+**Step 5:** Let's test whether this time the item still exists when the container is deleted. Please stop and delete the **todo-app** container.
+```shell
+docker rm -f todo-app
+```
+
+**Step 6:** Next, run a new container using the same command as before.
+```shell
+docker run -dp 30002:3000 --name todo-app -v todo-db:/etc/todos todo-app:v2
+```
+
+**Step 7:** Access Todo App again via http://{{Public-IP}}:30002/. You will see that the items that have been created previously are still *perched* there. Cool! You can now store data persistently.
+
+![Alt text](pics/09_app-volume-2.png)
