@@ -367,3 +367,165 @@ select * from todo_items;
 ![Alt text](pics/11_app-mysql.png)
 
 **Step 15:** Please exit the container by typing **exit**.
+
+
+# Part 5: Deploy Todo App via Docker Compose
+
+One of the advantages of using Docker Compose is that we can define the various services needed to run the application into a file, then store it in version control such as a git repository. 
+
+This way, you can share the files with others easily and/or simultaneously open up contributions for teams and Developers around the world to get involved in the project. Those who want to try just clone the repository and can run your application right away.
+
+If you followed the Docker Installation Exercise in the previous material, Docker Compose should be immediately available on your computer. Please check with this command.
+
+```shell
+docker compose version
+
+
+# Docker Compose version v2.27.0
+```
+
+If it turns out it's not yet available, you can follow the steps on this [page](https://docs.docker.com/compose/install/).
+
+Before starting, you must delete all containers associated with the Todo App first. The reason is, we will create a new container using Docker Compose. For that, please run the following command.
+
+```shell
+docker rm -f todo-app mysql-db \
+     && docker volume rm todo-db todo-mysql-data \
+     && docker network rm todo-app \
+     && docker image rm todo-app:v1 todo-app:v2 mysql:5.7 node:12-alpine
+```
+
+**Step 1:** In the Explorer pane in Visual Studio Code, create a new file called **docker-compose.yml** (in the root directory of microservices-labs).
+
+![Alt text](pics/12_create-file-compose.png)
+
+**Step 2:** Let's start from the first line, write it as follows in your **docker-compose.yml** file.
+
+```yaml
+version: "3.7"
+```
+
+This is the *schema version* of the Docker Compose that we wrote. Make sure you always use the latest version. Please see the latest *schema version* information on the following [page](https://docs.docker.com/compose/compose-file/).
+
+**Step 3:** Next, we will start to enter the section defining the services needed to run the Todo App.
+
+```yaml
+version: "3.7"
+
+services:
+```
+
+**Step 4:** The first service we will define is the Todo App itself. We will mention it as an **app**. Please note that this service name will automatically also become a network alias (the original network name is microservices-labs_default). microservices-labs is taken from the name of the directory where the docker-compose.yml file is located.
+
+```yaml
+version: "3.7"
+
+services:
+  app:
+    image: node:12-alpine
+    command: sh -c "yarn install && yarn run dev"
+    ports:
+    - 30002:3000
+    working_dir: /app
+    volumes:
+    - ./:/app
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: password
+      MYSQL_DB: todo-db
+```
+
+If you look carefully, you will understand every line above. The reason is, this is similar to the **docker run** command that we did before. Basically, we use the **node:12-alpine** image, run the command **sh -c "yarn install && yarn run dev"** when the container is launched to install all dependencies and run the application in development mode, exposing **port 30002** for host and **port 3000** on the container, assigning **/app** in the container as a working directory, using bind mount to mount the **current directory** on the host instead of using the full path, in Docker Compose we can use a relative path) to **/app** in the container, as well as specifying a number of **environment variables** such as hostname, username, password, and database name for MySQL. Oh yes, for the container name, it will be like this: **microservices-labs-app-1**.
+
+**Step 5:** Next, we define a service for the MySQL database with the name mysql. Automatically, this service name will also be used as the name of the network alias.
+
+```yaml
+version: "3.7"
+
+services:
+  app:
+    image: node:12-alpine
+    command: sh -c "yarn install && yarn run dev"
+    ports:
+    - 30002:3000
+    working_dir: /app
+    volumes:
+    - ./:/app
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: password
+      MYSQL_DB: todo-db
+
+  mysql:
+    image: mysql:5.7
+    volumes:
+    - todo-mysql-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: todo-db
+
+volumes:
+  todo-mysql-data:
+```
+
+Defining services for MySQL is also quite familiar because it is similar to the **docker run** command that we did before. Simply put, here we use the **mysql:5.7** image, use the **todo-mysql-data** volume (which is defined in the volume: section) and mount it to the **/var/lib/mysql** directory in the container, specifying a number of **environment variables** such as root password and database name for MySQL, as well as creating a new volume called **todo-mysql-data** (later microservices-labs_todo-mysql-data) which will be used by MySQL. In Docker Compose for the container name, it will look like this: **microservices-labs-mysql-1**. 
+
+**Step 6:** OK, everything is ready. Don't forget to save the file with **CTRL+S**.
+
+**Step 7:** In the VS Code terminal, run the following command to start the Todo App application using Docker Compose
+
+```shell
+docker compose up -d
+
+
+# [+] Running 17/17
+#  ✔ mysql Pulled                                                                                                                          18.1s
+#    ✔ 20e4dcae4c69 Pull complete                                                                                                           6.3s
+#    ✔ 1c56c3d4ce74 Pull complete                                                                                                           6.3s
+#    ✔ e9f03a1c24ce Pull complete                                                                                                           6.4s
+#    ✔ 68c3898c2015 Pull complete                                                                                                           6.7s
+#    ✔ 6b95a940e7b6 Pull complete                                                                                                           6.7s
+#    ✔ 90986bb8de6e Pull complete                                                                                                           6.8s
+#    ✔ ae71319cb779 Pull complete                                                                                                           7.3s
+#    ✔ ffc89e9dfd88 Pull complete                                                                                                           7.4s
+#    ✔ 43d05e938198 Pull complete                                                                                                          14.8s
+#    ✔ 064b2d298fba Pull complete                                                                                                          14.8s
+#    ✔ df9a4d85569b Pull complete                                                                                                          14.9s
+#  ✔ app Pulled                                                                                                                            12.1s
+#    ✔ df9b9388f04a Pull complete                                                                                                           5.3s
+#    ✔ 3bf6d7380205 Pull complete                                                                                                           8.6s
+#    ✔ 7939e601ee5e Pull complete                                                                                                           8.7s
+#    ✔ 31f0fb9de071 Pull complete                                                                                                           8.7s
+# [+] Running 4/4
+#  ✔ Network microservices-labs_default           Created                                                                                   0.1s
+#  ✔ Volume "microservices-labs_todo-mysql-data"  Created                                                                                   0.0s
+#  ✔ Container microservices-labs-mysql-1         Started                                                                                   0.6s
+#  ✔ Container microservices-labs-app-1           Started                                                                                   0.7s
+```
+
+**Step 8:** All resources needed to run the Todo App have been running successfully. Please access Todo App via http://{{Public-IP}}:30002/. You can also check the list of containers that running
+
+```shell
+docker compose ps
+
+
+# NAME                         IMAGE            COMMAND                  SERVICE   CREATED         STATUS         PORTS
+# microservices-labs-app-1     node:12-alpine   "docker-entrypoint.s…"   app       5 minutes ago   Up 5 minutes   0.0.0.0:30002->3000/tcp, :::30002->3000/tcp
+# microservices-labs-mysql-1   mysql:5.7        "docker-entrypoint.s…"   mysql     5 minutes ago   Up 5 minutes   3306/tcp, 33060/tcp
+```
+
+Before continuing with the following material, you must delete all the resources you have created. Docker Compose makes it easy to both create and delete resources. To do this, please run the following command.
+
+```shell
+docker compose down --volumes
+
+
+# [+] Running 4/4
+#  ✔ Container microservices-labs-mysql-1       Removed                                                                                     3.2s
+#  ✔ Container microservices-labs-app-1         Removed                                                                                     0.2s
+#  ✔ Volume microservices-labs_todo-mysql-data  Removed                                                                                     0.1s
+#  ✔ Network microservices-labs_default         Removed                                                                                     0.1s
+```
+
