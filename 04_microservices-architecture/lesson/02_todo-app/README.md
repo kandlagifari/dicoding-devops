@@ -148,3 +148,222 @@ docker run -dp 30002:3000 --name todo-app -v todo-db:/etc/todos todo-app:v2
 **Step 7:** Access Todo App again via http://{{Public-IP}}:30002/. You will see that the items that have been created previously are still *perched* there. Cool! You can now store data persistently.
 
 ![Alt text](pics/09_app-volume-2.png)
+
+
+# Part 4: Added New Container for MySQL
+
+Even though SQLite is a good option for storing relational data for Todo App applications, we also have to learn about other database engines that are generally used for large-scale applications, one of which is MySQL.
+
+However, how do you install MySQL in a container? Do we put it in the todo-app container (like SQLite) or do we place it in a different container? What are the best practices?
+
+Okay. Remember that we are currently learning to build a microservices architecture. In principle, each service (in this case a container) should only do one thing. 
+
+Therefore, we will update the Todo App architecture to be as follows.
+
+![Alt text](pics/10_simple-diagram.png)
+
+One question arises, how do we connect the application with the database as shown above? We think you already know the answer. Networking! We have learned about this in the Networking material on Docker. 
+
+By connecting two containers to the same network, they can communicate with each other. That's what we're going to do here. 
+
+Before starting, let's delete the todo-app container first because we will create a new one later.
+```shell
+docker rm -f todo-app
+```
+
+**Step 1:** First, let's create a bridge type custom network with the name todo-app.
+```shell
+docker network create todo-app
+
+
+# 913c26dc0da7e39455d3bf0ec429b420ab9954475c2ca3b110f418627b8a3d16
+```
+
+**Step 2:** If we don't specify a type when creating the network, Docker automatically identifies it as a bridge network. Please check with the following command.
+```shell
+docker network ls
+
+
+# NETWORK ID     NAME       DRIVER    SCOPE
+# 63a952257868   bridge     bridge    local
+# e027f91bb219   host       host      local
+# 18eac7dec809   none       null      local
+# 913c26dc0da7   todo-app   bridge    local
+```
+
+**Step 3:** Now, run a new container for MySQL called **mysql-db**, attach the network you created earlier (as well as create an alias or other name for the **todo-app** network, namely **mysql**), and create a new volume called **todo-mysql-data** and simultaneously attach it to the directory **/var/lib/mysql** in the container (which is the location MySQL writes data to by default).
+
+```shell
+docker run -d \
+     --name mysql-db \
+     --network todo-app --network-alias mysql \
+     -v todo-mysql-data:/var/lib/mysql \
+     -e MYSQL_ROOT_PASSWORD=password \
+     -e MYSQL_DATABASE=todo-db \
+     mysql:5.7
+
+
+# Unable to find image 'mysql:5.7' locally
+# 5.7: Pulling from library/mysql
+# 20e4dcae4c69: Pull complete
+# 1c56c3d4ce74: Pull complete
+# e9f03a1c24ce: Pull complete
+# 68c3898c2015: Pull complete
+# 6b95a940e7b6: Pull complete
+# 90986bb8de6e: Pull complete
+# ae71319cb779: Pull complete
+# ffc89e9dfd88: Pull complete
+# 43d05e938198: Pull complete
+# 064b2d298fba: Pull complete
+# df9a4d85569b: Pull complete
+# Digest: sha256:4bc6bc963e6d8443453676cae56536f4b8156d78bae03c0145cbe47c2aad73bb
+# Status: Downloaded newer image for mysql:5.7
+# 737114878cec4da05632a5ea01102c7ee367344a2c1ea8a82b6623fbe192537d
+```
+
+In the command above, we also define several environment variables such as the root password and database name (marked with the -e option) that will be used by the database to initialize the database. In addition, we use the **mysql version 5.7** image taken from Docker Hub.
+
+
+**Step 4:** After the **mysql** container has been successfully created, go into it to test whether our database is running normally.
+
+```shell
+docker exec -it mysql-db mysql -u root -p
+
+
+# Enter password:
+# Welcome to the MySQL monitor.  Commands end with ; or \g.
+# Your MySQL connection id is 2
+# Server version: 5.7.44 MySQL Community Server (GPL)
+
+# Copyright (c) 2000, 2023, Oracle and/or its affiliates.
+
+# Oracle is a registered trademark of Oracle Corporation and/or its
+# affiliates. Other names may be trademarks of their respective
+# owners.
+
+# Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+# mysql>
+```
+
+Note, **mysql-db** is the name of the container, while **mysql -u root -p** is the command to connect to MySQL using a user (-u) named **root** and a **password** (-p) which will be typed in the terminal. When the password input prompt appears, please enter the *password*. You will also be connected to MySQL.
+
+**Step 5:** Once inside the MySQL container, run the command below to display a list of available databases. Make sure there is a database called todo-db that we created previously.
+
+```shell
+SHOW DATABASES;
+
+
+# mysql> SHOW DATABASES;
+# +--------------------+
+# | Database           |
+# +--------------------+
+# | information_schema |
+# | mysql              |
+# | performance_schema |
+# | sys                |
+# | todo-db            |
+# +--------------------+
+# 5 rows in set (0.00 sec)
+```
+
+**Step 6:** OK, safe. Exit the container with the **exit** command.
+
+**Step 7:** We now know that the MySQL database is active and ready to use. However, how can it be accessed by the Todo App? Do you remember that we previously used the **--network-alias mysql** option when creating the MySQL container? Well, because Todo App and MySQL are on the same network (namely **todo-app** with the alias **mysql**), they can communicate using the container IP address, container name, or even network name. Let's just try it out.
+
+**Step 8:** The Todo App application supports settings for several environment variables to connect to MySQL (please check the **src/persistence/mysql.js** file), including the following.
+- **MYSQL_HOST:** hostname where the MySQL server is running (in our case, it could be the IP address of the mysql-db container, the name of the mysql-db container, or the name of the network/network alias).
+- **MYSQL_USER:** username used to connect to the MySQL database.
+- **MYSQL_PASSWORD:** password used to connect to the MySQL database.
+- **MYSQL_DB:** name of the database to connect to.
+
+**Step 9:** Alright, let's get straight to running the container for Todo App.
+
+```shell
+docker run -dp 30002:3000 --name todo-app \
+   -w /app -v "$(pwd):/app" \
+   --network todo-app \
+   -e MYSQL_HOST=mysql \
+   -e MYSQL_USER=root \
+   -e MYSQL_PASSWORD=password \
+   -e MYSQL_DB=todo-db \
+   node:12-alpine \
+   sh -c "yarn install && yarn run dev"
+
+
+# Unable to find image 'node:12-alpine' locally
+# 12-alpine: Pulling from library/node
+# df9b9388f04a: Already exists
+# 3bf6d7380205: Already exists
+# 7939e601ee5e: Already exists
+# 31f0fb9de071: Already exists
+# Digest: sha256:d4b15b3d48f42059a15bd659be60afe21762aae9d6cbea6f124440895c27db68
+# Status: Downloaded newer image for node:12-alpine
+# d35fb54eb4cd1a0c744ad9eeada32f822c58958022b48877ab78a65d22f98a08
+```
+
+The following is the explanation.
+- **docker run -dp 30002:3000 --name todo-app:** we run the container with the name **todo-app** in **detach** mode while exposing port **3000** from the container to port **30002** on the host.
+
+- **-w /app -v "$(pwd):/app":** we specify that the working directory in the container is /app, then attach bind mount storage and mount the **current working directory on the host** to the **/app** directory on containers. Oh yes, because we use bind mount, any changes you make to the application code will be immediately applied to the Todo App without the need to rebuild the image. You only need to reload or refresh the web browser.
+
+- **--network todo-app:** we use a bridge network called **todo-app**.
+
+- **-e MYSQL_HOST=mysql:** we define the environment variable for MySQL hostname with a network alias named **mysql**.
+
+- **-e MYSQL_USER=root:** we define the environment variable for MySQL username with the value **root**. That means, we will use the root user.
+
+- **-e MYSQL_PASSWORD=password:** we define the environment variable for MySQL password with a value **password**. So, the next time you want to connect to MySQL and are asked for a password, you just enter "password".
+
+- **-e MYSQL_DB=todo-db:** we define the environment variable for MySQL database name with the value **todo-db**. So, when you enter the container, you can access a database called **todo-db**.
+
+- **node:12-alpine:** we use an image named **node** with the tag **12-alpine** from Docker Hub.
+
+- **sh -c "yarn install && yarn run dev":** we run two commands when the container is launched, namely **yarn install** (to install all the dependencies required by the Todo App listed in the package.json file) and **yarn run dev** (to run the **nodemon script src/index.js** as stated in the scripts -> dev section of the package.json file).
+
+**Step 10:** Next, let's examine the logs from the container named **todo-app** to see how the Todo App application runs and shows that it is successfully using the MySQL database.
+
+```shell
+docker logs todo-app 
+
+
+# yarn install v1.22.18
+# [1/4] Resolving packages...
+# warning Resolution field "ansi-regex@5.0.1" is incompatible with requested version "ansi-regex@^2.0.0"
+# warning Resolution field "ansi-regex@5.0.1" is incompatible with requested version "ansi-regex@^3.0.0"
+# success Already up-to-date.
+# Done in 0.49s.
+# yarn run v1.22.18
+# $ nodemon src/index.js
+# [nodemon] 2.0.13
+# [nodemon] to restart at any time, enter `rs`
+# [nodemon] watching path(s): *.*
+# [nodemon] watching extensions: js,mjs,json
+# [nodemon] starting `node src/index.js`
+# Waiting for mysql:3306.
+# Connected!
+# Connected to mysql db at host mysql
+# Listening on port 3000
+```
+
+From the log message above, we can see that behind the scenes the container will **install dependencies**, run the **nodemon src/index.js** command, connect to the container named mysql-db via network alias **mysql** on port **3306**, and run Todo App via port **30002**.
+
+**Step 11:** Then, open the Todo App via http://{{Public-IP}}:30002/ and add some items.
+
+**Step 12:** After that, let's go to the **mysql-db** container to check whether the item you wrote earlier has been saved in MySQL.
+
+```shell
+docker exec -it mysql-db mysql -p todo-db
+```
+
+**Step 13:** While logging into the container, run the following query.
+
+```shell
+select * from todo_items;
+```
+
+**Step 14:** Excellent! It turns out that everything we do in the Todo App is stored in this MySQL database.
+
+![Alt text](pics/11_app-mysql.png)
+
+**Step 15:** Please exit the container by typing **exit**.
