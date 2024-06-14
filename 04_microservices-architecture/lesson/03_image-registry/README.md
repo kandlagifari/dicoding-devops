@@ -195,3 +195,115 @@ docker container stop registry my-nginx && docker container rm -v registry my-ng
 # registry
 # my-nginx
 ```
+
+
+# Part 2: Uploading a Docker Image to Docker Hub
+
+**Step 1:** The first step you must take is to create a Docker Hub account (aka Docker ID). Please create an account first by following the steps on the following [page](https://docs.docker.com/docker-id/). If you already have an account, please log in to [Docker Hub](https://hub.docker.com/).
+
+**Step 2:** When you successfully log in, you will usually be directed to your personal repository page.
+
+**Step 3:** Let's create a new repository by clicking the **Create repository** button.
+
+![Alt text](pics/04_docker-hub.png)
+
+**Step 4:** On the repository creation page, please fill in the *Repository name* with **nginx-hello-world**, fill in the *Description* column freely, and select **Public** in the *Visibility* section.
+
+![Alt text](pics/05_create-repo.png)
+
+If so, click the **Create** button to create a repository.
+
+**Step 5:** Great, you have successfully created a new repository in Docker Hub.
+
+![Alt text](pics/06_repo-overview.png)
+
+**Step 6:** However, this repository is still empty because there are no images there yet. Therefore, let's upload the image locally.
+
+**Step 7:** Please check your local image listings. There should be an image called **localhost:30002/nginx-hello-world** because it was automatically downloaded when you ran the container using Docker Registry in the previous exercise.
+
+```shell
+docker images
+
+
+# REPOSITORY                          TAG         IMAGE ID       CREATED        SIZE
+# localhost:30002/nginx-hello-world   latest      f1bf1bc5f6d2   17 hours ago   188MB
+# nginx                               latest      4f67c83422ec   2 weeks ago    188MB
+# registry                            2           d6b2c32a0f14   8 months ago   25.4MB
+```
+
+**Step 8:** We will change the name of the image (a.k.a repository) and adjust it to the name of the repository in Docker Hub. Please open your terminal and run the following command.
+```shell
+docker tag localhost:30002/nginx-hello-world <username>/nginx-assalamualaikum:v1
+```
+
+Match *{{username}}* with the username of the Docker ID you created. In the command above, we change the image name which previously referred to the Docker Registry to Docker Hub repository accompanied by the v1 tag.
+Check your local image list again.
+
+**Step 9:** Check your local images list again.
+```shell
+docker images
+
+
+# REPOSITORY                           TAG         IMAGE ID       CREATED        SIZE
+# kandlagifari/nginx-assalamualaikum   v1          f1bf1bc5f6d2   17 hours ago   188MB
+# localhost:30002/nginx-hello-world    latest      f1bf1bc5f6d2   17 hours ago   188MB
+# nginx                                latest      4f67c83422ec   2 weeks ago    188MB
+# registry                             2           d6b2c32a0f14   8 months ago   25.4MB
+```
+
+The docker tag command does not necessarily delete the image (a.k.a repository) named localhost:30002/nginx-hello-world, instead it will only create a new repository with the name we entered. However, it actually still refers to the same image (pay attention to the image ID between the two).
+
+**Step 10:** Next, we just upload this new image to Docker Hub. However, we need to log in first. If you want to use Terminal, you can run the **docker login** command, then fill in the username and password at the shell prompt. Apart from this method, you can also log in using [Docker credential helpers](https://github.com/docker/docker-credential-helpers) or a [personal access token](https://docs.docker.com/security/for-developers/access-tokens/).
+
+```shell
+docker login -u <username>
+```
+
+![Alt text](pics/07_docker-login.png)
+
+**Step 11:** After successfully logging in, now is the time to upload the image to Docker Hub. Please type the following command.
+
+```shell
+docker push <username>/nginx-assalamualaikum:v1
+```
+
+![Alt text](pics/08_docker-push.png)
+
+**Step 12:** Succeed! Before we check Docker Hub, try paying attention to this line first.
+```shell
+# The push refers to repository [docker.io/kandlagifari/nginx-assalamualaikum]
+```
+
+That means, our image is uploaded to a registry called **docker.io** (aka Docker Hub), with the namespace **kandlagifari** (username), and the repository **nginx-assalamualaikum**. 
+
+**Step 13:** OK, now let's look back at the Docker Hub page, please *refresh* the page or access your **nginx-assalamualaikum** repository again. Go to the **Tags** section and you will see that **nginx-assalamualaikum:v1** is already available there.
+
+![Alt text](pics/09_docker-image.png)
+
+**Step 14:** Let's test it. Back in the terminal, delete all images related to **nginx-assalamualaikum**.
+```shell
+docker image rm <username>/nginx-asalamualaikum:v1 localhost:30002/nginx-hello-world:latest
+```
+
+**Step 15:** Then, run the container using the image from your public repository.
+```shell
+docker run -d --name my-nginx -p 30003:80 kandlagifari/nginx-assalamualaikum:v1
+```
+
+![Alt text](pics/10_run-container.png)
+
+Cool! You have successfully created a repository in Docker Hub, uploaded the Docker image to Docker Hub, and run the container using the image from Docker Hub.
+
+Before continuing to the next material, don't forget to delete all resources with the following command.
+
+```shell
+docker stop my-nginx && docker container rm my-nginx && docker image rm kandlagifari/nginx-assalamualaikum:v1
+
+
+# my-nginx
+# my-nginx
+# Untagged: kandlagifari/nginx-assalamualaikum:v1
+# Untagged: kandlagifari/nginx-assalamualaikum@sha256:2b614c5cffcff2e51febce0156a103343f0f59e5f2d300822af5c57fc32aabdb
+# Deleted: sha256:f1bf1bc5f6d26015bebf0e8375518e778b4ec4b8ffd8c25023bbc8ca964a8d46
+# Deleted: sha256:179a8e10af3b40efc3911abc9364ffbd5c34fbc6a6a6283a57513282be757ea2
+```
