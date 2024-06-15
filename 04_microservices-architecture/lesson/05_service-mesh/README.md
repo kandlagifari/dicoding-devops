@@ -653,6 +653,10 @@ So, this time we will deploy the [Kiali](https://kiali.io/) dashboard along with
 
 **Step 1:** Install all addons in the samples/addons directory. Wait until everything is finished creating.
 
+```shell
+kubectl apply -f samples/addons
+```
+
 ![Alt text](pics/07_install-addons.png)
 
 **Step 2:** Next, make sure the rollout status for Kiali is successful.
@@ -730,5 +734,456 @@ However, I will use port forward, because I will access Kiali Dashboard though P
 
 **Step 6:** In the left navigation menu, select **Traffic Graph**. Click the **Select Namespaces** drop down, then check **bookinfo-apps**.
 
-**Step 7:** To make the trace data visualization process easier, change the Traffic metrics per refresh to Last 1h and Refresh interval to Every 10s.
+**Step 7:** To make the trace data visualization process easier, change the *Traffic metrics per refresh* to **Last 1h** and *Refresh interval* to **Every 10s**.
 
+![Alt text](pics/09_kiali-traffic.png)
+
+**Step 8:** Didn't see anything? Calm. So, to see trace data, we have to send a number of requests to the application. With a default sampling rate of 1%, we must send at least 100 requests before the first trace can be seen. So, to send 100 requests to the application (to **productpage** service to be precise), first try stopping Kiali dashboard in the terminal (with the CTRL+C combination), then run the following command.
+
+```shell
+for i in $(seq 1 100); do curl -s -o /dev/null "http://$GATEWAY_URL/productpage"; done
+```
+
+**Step 9:** After that, refresh the Kiali dashboard browser.
+
+![Alt text](pics/10_kiali-traffic-2.png)
+
+**Step 10:** On the Kiali dashboard, press the blue **refresh** button in the top right corner (or wait up to 10 seconds for it to refresh automatically). Voila! Kiali dashboard will display a visualization of your service mesh along with the relationships between services for the Bookinfo application.
+
+![Alt text](pics/11_kiali-traffic-3.png)
+
+**Step 11:** In fact, it also provides filters to make it easier for you to analyze traffic flow on the service mesh.
+
+![Alt text](pics/12_kiali-traffic-4.png)
+
+
+# Part 5: Implement Request Routing
+
+### Virtual Service and Destination Rule
+
+Virtual services and destination rules are the main components of Istio traffic routing functionality. Virtual services allow you to configure redirection of requests to services within the Istio service mesh. 
+
+Each virtual service consists of a set of routing rules that are evaluated sequentially which makes it easy for Istio to match each request given to the virtual service to a specific service in the service mesh. 
+
+You can use several virtual services or none in a service mesh depending on your needs.
+
+You can think of a virtual service as a way to route traffic to a specific destination, and then you use destination rules to configure what happens to the traffic to that destination. Destination rules will be applied after the virtual service routing rules have been evaluated. 
+
+In practice, destination rules are used to determine subsets, namely a number of services grouped according to version. Then, you can use these service subsets in virtual service routing rules to control traffic to various services for your application. 
+
+Destination rules also allow you to adjust Envoy traffic policies when directing traffic to a destination, such as load balancing models, TLS security modes, or circuit breaker settings.
+
+### Bookinfo Application Review
+
+As you know, the Bookinfo application consists of 4 services: **details**, **ratings**, **reviews**, and **productpage**; where the reviews service has three different versions and all three have been deployed and running simultaneously.
+
+Try accessing the Bookinfo application in a browser and refreshing it several times, you will get a different Book Reviews display. Sometimes it appears without stars, other times the star rating appears in black, and occasionally the star rating appears in red.
+
+![Alt text](pics/13_product-page.png)
+
+How did it happen? If you remember, we discussed this at the beginning of this series of exercises, namely because the **reviews** service has three different versions, here is the explanation.
+
+1. Version v1 does not communicate with **ratings** service.
+2. The v2 version communicates with the **ratings** service and displays a rating of 1-5 in the form of black stars.
+3. The v3 version communicates with the **ratings** service and displays a rating of 1-5 in the form of red stars.
+
+Apart from that, this is also because we are *deploying* the three versions simultaneously and we have not determined the default service version to route. Therefore, Istio will send requests to all available versions in **round robin** mode so that all versions appear randomly. 
+
+In real cases, of course you don't want it to be like this, right? You'll want your app to only display the latest version consistently to uniform the user experience.
+
+Well, we can solve this problem with Istio through the request routing functionality.
+
+
+### Implementation of Request Routing Functionality
+
+Therefore, in this exercise, we will apply a rule that routes all traffic to v1 (version 1). Then, you'll also apply rules to route traffic based on HTTP request header values. Let's start!
+
+**Step 1:** First, create a default destination rule for the Bookinfo application. Please run the following command to copy the lines of code below to the **destination-rule-all.yaml** file (if Kiali dashboard is still running, please stop it with CTRL+C).
+
+```shell
+cat <<EOF > destination-rule-all.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: productpage
+spec:
+  host: productpage
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews
+spec:
+  host: reviews
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+  - name: v3
+    labels:
+      version: v3
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ratings
+spec:
+  host: ratings
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+  - name: v2-mysql
+    labels:
+      version: v2-mysql
+  - name: v2-mysql-vm
+    labels:
+      version: v2-mysql-vm
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: details
+spec:
+  host: details
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+---
+EOF
+```
+
+In the manifest file above, we define default routing rules where *all traffic* can be routed to each version for each existing service. 
+
+**Step 2** After that, deploy the manifest file above.
+
+```shell
+kubectl apply -f destination-rule-all.yaml -n bookinfo-apps
+
+
+# destinationrule.networking.istio.io/productpage created
+# destinationrule.networking.istio.io/reviews created
+# destinationrule.networking.istio.io/ratings created
+# destinationrule.networking.istio.io/details created
+```
+
+**Step 3:** Wait until the destination rule is successfully implemented. Check by running the following command.
+
+```shell
+kubectl get destinationrules -n bookinfo-apps
+
+
+# NAME          HOST          AGE
+# details       details       51s
+# productpage   productpage   51s
+# ratings       ratings       51s
+# reviews       reviews       51s
+```
+
+**Step 4:** OK, now we will try to route all traffic only to v1 (version 1) for all services from the Bookinfo application. For this reason, we will configure virtual service routing rules. Please run the following command to copy the below lines of code to the **virtual-service-all-v1.yaml** file.
+
+```shell
+cat <<EOF > virtual-service-all-v1.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: productpage
+spec:
+  hosts:
+  - productpage
+  http:
+  - route:
+    - destination:
+        host: productpage
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+spec:
+  hosts:
+  - ratings
+  http:
+  - route:
+    - destination:
+        host: ratings
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: details
+spec:
+  hosts:
+  - details
+  http:
+  - route:
+    - destination:
+        host: details
+        subset: v1
+---
+EOF
+```
+
+Look at the manifest file above. Here, we define that the route for `productpage` is directed to **v1**, `reviews` to **v1**, `ratings` to **v1**, and `details` to **v1**.
+
+**Step 5:** Next, let's deploy the manifest file for the virtual service.
+
+```shell
+kubectl apply -f virtual-service-all-v1.yaml -n bookinfo-apps
+
+
+# virtualservice.networking.istio.io/productpage created
+# virtualservice.networking.istio.io/reviews created
+# virtualservice.networking.istio.io/ratings created
+# virtualservice.networking.istio.io/details created
+```
+
+**Step 6:** Wait until the virtual service is successfully implemented. Check by running the following command.
+
+```shell
+kubectl get virtualservice -n bookinfo-apps
+
+
+# NAME          GATEWAYS               HOSTS             AGE
+# bookinfo      ["bookinfo-gateway"]   ["*"]             24h
+# details                              ["details"]       22s
+# productpage                          ["productpage"]   22s
+# ratings                              ["ratings"]       22s
+# reviews                              ["reviews"]       22s
+```
+
+Nice! You have successfully configured Istio to route all traffic only to version 1 of the Bookinfo application, especially the reviews v1 service. Try accessing the Bookinfo application again in the browser, you will be surprised because every time it refreshes it only displays version 1 (does not display the star rating).
+
+
+# Part 6: Implementing Traffic Shifting
+
+You have configured Istio to route all **traffic** for the reviews service to version v1. Because this version does not communicate with the **ratings** service, the Bookinfo application does not display star ratings at all in the Book Reviews section.
+
+Suppose a Bookinfo application user provides input to display the star rating in the Book Reviews section. Seeing this, you then deploy the **reviews:v2** service which is able to display star ratings.
+
+However, you want to manage traffic to implement a *canary deployment*. This means that you want the **reviews:v2** service to only be introduced to a small number of users first to test whether the feature works well and is liked by users or not. Then, if everything goes smoothly, you want to gradually increase the traffic percentage for the **reviews:v2** service while slowly removing **reviews:v1**.
+
+Well, fortunately cases like this can be handled by Istio. It is able to provide the controls needed to implement canary deployments. Therefore, this exercise will show you how to do traffic shiting (diverting network traffic) from one version of a service to another.
+
+In Istio, we can implement traffic shifting by configuring virtual service routing rules which can divert a percentage of traffic from one destination to another. Can not wait? Come on, let's just start practicing.
+
+**Step 1:** In the previous exercise, we configured the virtual service to route all traffic to the **reviews:v1** service. Not much different from that, we will also configure a virtual service, but this time to route 90% of traffic to **reviews:v1** and 10% to **reviews:v2**. For that, please run the following command to copy the lines of code below to the manifest file named **virtual-service-reviews-90-10.yaml**.
+
+```shell
+cat <<EOF > virtual-service-reviews-90-10.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts:
+    - reviews
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+      weight: 90
+    - destination:
+        host: reviews
+        subset: v2
+      weight: 10
+EOF
+```
+
+**Step 2:** After that, deploy the manifest file.
+
+```shell
+kubectl apply -f virtual-service-reviews-90-10.yaml -n bookinfo-apps
+
+
+# virtualservice.networking.istio.io/reviews configured
+```
+
+**Step 3:** Wait until the virtual service is successfully implemented. Check by running the following command.
+
+```shell
+kubectl describe virtualservice -n bookinfo-apps reviews
+
+
+# Name:         reviews
+# Namespace:    bookinfo-apps
+# Labels:       <none>
+# Annotations:  <none>
+# API Version:  networking.istio.io/v1
+# Kind:         VirtualService
+# Metadata:
+#   Creation Timestamp:  2024-06-15T08:21:55Z
+#   Generation:          2
+#   Resource Version:    653719
+#   UID:                 db6c2b8e-b7d5-45c8-adf9-a0c0eb1645bf
+# Spec:
+#   Hosts:
+#     reviews
+#   Http:
+#     Route:
+#       Destination:
+#         Host:    reviews
+#         Subset:  v1
+#       Weight:    90
+#       Destination:
+#         Host:    reviews
+#         Subset:  v2
+#       Weight:    10
+# Events:          <none>
+```
+
+**Step 4:** Nice! Try now accessing the Bookinfo application and refresh it several times. You will more often get **reviews:v1** (no star rating) and **reviews:v2** (black star rating) only appearing occasionally. This happens because **reviews:v2** communicates with the ratings service, while **reviews:v1** does not.
+
+![Alt text](pics/14_test-v1-v2-90-10.png)
+
+**Step 5:** OK, let's say this feature runs smoothly and users like it. You decide to route all user traffic to **reviews:v2**, how do you do that? Simple. Please run the following command to copy the lines of code below to the manifest file named **virtual-service-reviews-v2.yaml**.
+
+```shell
+cat <<EOF > virtual-service-reviews-v2.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts:
+    - reviews
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v2
+EOF
+```
+
+**Step 6:** Just deploy the manifest file.
+
+```shell
+kubectl apply -f virtual-service-reviews-v2.yaml -n bookinfo-apps
+
+
+# virtualservice.networking.istio.io/reviews configured
+```
+
+**Step 7:** Wait until the virtual service is successfully implemented. Check by running the following command.
+
+```shell
+kubectl describe virtualservice -n bookinfo-apps reviews
+
+
+# Name:         reviews
+# Namespace:    bookinfo-apps
+# Labels:       <none>
+# Annotations:  <none>
+# API Version:  networking.istio.io/v1
+# Kind:         VirtualService
+# Metadata:
+#   Creation Timestamp:  2024-06-15T08:21:55Z
+#   Generation:          3
+#   Resource Version:    654144
+#   UID:                 db6c2b8e-b7d5-45c8-adf9-a0c0eb1645bf
+# Spec:
+#   Hosts:
+#     reviews
+#   Http:
+#     Route:
+#       Destination:
+#         Host:    reviews
+#         Subset:  v2
+# Events:          <none>
+```
+
+**Step 8:** Access the Bookinfo application again and refresh it several times. Now you will only get **reviews:v2** (black star rating). Interesting, right? 
+
+![Alt text](pics/15_test-v2-full.png)
+
+Now, let's say you have developed version 3 of the **reviews** service (i.e. the red star rating) and have deployed it to a Kubernetes cluster. Unlike before, this time you are confident with the feature and want all users to experience it at once without going through the canary deployment process. Sure, you already know how, right?
+
+**Step 9:** First, copy the line of code below to save it to the **virtual-service-reviews-v3.yaml** file.
+
+```shell
+cat <<EOF > virtual-service-reviews-v3.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts:
+    - reviews
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v3
+EOF
+```
+
+**Step 10:** Next, deploy the manifest file.
+
+```shell
+kubectl apply -f virtual-service-reviews-v3.yaml -n bookinfo-apps
+
+
+# virtualservice.networking.istio.io/reviews configured
+```
+
+**Step 11:** Wait until the virtual service is successfully implemented. Check by running the following command.
+
+```shell
+kubectl describe virtualservice -n bookinfo-apps reviews
+
+
+# Name:         reviews
+# Namespace:    bookinfo-apps
+# Labels:       <none>
+# Annotations:  <none>
+# API Version:  networking.istio.io/v1
+# Kind:         VirtualService
+# Metadata:
+#   Creation Timestamp:  2024-06-15T08:21:55Z
+#   Generation:          4
+#   Resource Version:    654271
+#   UID:                 db6c2b8e-b7d5-45c8-adf9-a0c0eb1645bf
+# Spec:
+#   Hosts:
+#     reviews
+#   Http:
+#     Route:
+#       Destination:
+#         Host:    reviews
+#         Subset:  v3
+# Events:          <none>
+```
+
+**Step 12:** Access the Bookinfo application again and refresh it several times. You will definitely only get **reviews:v3** (red star rating). Break a leg!
+
+![Alt text](pics/16_test-v3-full.png)
